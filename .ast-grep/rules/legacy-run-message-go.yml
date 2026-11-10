@@ -1,0 +1,11 @@
+id: legacy-run-message-go
+language: go
+severity: warning
+message: writes deprecated ProgressMessage/ErrorMessage; use structured Progress/Error
+rule:
+  any:
+    - pattern: $X.ErrorMessage = $V
+    - pattern: $X.ProgressMessage = $V
+    - kind: keyed_element
+      regex: '^(ErrorMessage|ProgressMessage)\s*:'
+ignores: ["**/*_test.go", "gen/**", "frontend/src/gen/**", "**/node_modules/**"]

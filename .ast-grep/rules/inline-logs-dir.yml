@@ -1,0 +1,11 @@
+id: inline-logs-dir
+language: go
+severity: warning
+message: inline "logs" dir name; use a pkg/workspace constant (LogsDirName) once added
+rule:
+  kind: interpreted_string_literal
+  regex: '^"logs"$'
+  any:
+    - inside: { kind: argument_list, inside: { kind: call_expression, has: { field: function, regex: '^filepath\.Join$' } } }
+    - inside: { kind: literal_element, inside: { kind: literal_value, inside: { kind: composite_literal, has: { field: type, regex: '^\[\]string$' } } } }
+ignores: ["**/*_test.go", "gen/**", "frontend/src/gen/**", "**/node_modules/**"]

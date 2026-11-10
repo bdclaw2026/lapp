@@ -20,3 +20,18 @@ jobs:
 
       - name: Run unit tests
         run: go test ./pkg/...
+
+  ast-grep-ratchet:
+    name: ast-grep ratchet
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install ast-grep 0.51.1
+        run: npm i -g @ast-grep/cli@0.51.1
+
+      - name: Check legacy-pattern counts did not rise
+        run: .ast-grep/ratchet.sh origin/${{ github.base_ref }}
