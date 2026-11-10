@@ -1,0 +1,10 @@
+id: legacy-pkg-import
+language: go
+severity: warning
+message: import of legacy package (DuckDB store / event parser / ingest); do not extend
+rule:
+  kind: import_spec
+  has:
+    field: path
+    regex: 'github.com/strrl/lapp/pkg/(store|event|ingest)"'
+ignores: ["gen/**"]

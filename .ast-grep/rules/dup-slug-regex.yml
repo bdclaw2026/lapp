@@ -1,0 +1,10 @@
+id: dup-slug-regex
+language: go
+severity: warning
+message: another [^a-z0-9] slug/sanitize regex; share one sanitizer
+rule:
+  kind: call_expression
+  has: { field: function, regex: '^regexp\.MustCompile$' }
+  all:
+    - has: { field: arguments, has: { kind: raw_string_literal, regex: '\[\^a-z0-9' } }
+ignores: ["**/*_test.go", "gen/**", "frontend/src/gen/**", "**/node_modules/**"]

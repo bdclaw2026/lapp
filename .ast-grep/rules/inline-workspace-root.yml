@@ -1,0 +1,11 @@
+id: inline-workspace-root
+language: go
+severity: warning
+message: inline ~/.lapp/workspaces root; needs a shared helper
+rule:
+  kind: call_expression
+  has: { field: function, regex: '^filepath\.Join$' }
+  all:
+    - has: { field: arguments, has: { kind: interpreted_string_literal, regex: '^"\.lapp"$' } }
+    - has: { field: arguments, has: { kind: interpreted_string_literal, regex: '^"workspaces"$' } }
+ignores: ["**/*_test.go", "gen/**", "frontend/src/gen/**", "**/node_modules/**"]

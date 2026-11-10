@@ -1,0 +1,8 @@
+id: hardcoded-tape-filename
+language: go
+severity: warning
+message: hard-coded tape file name; use tape.FileName
+rule:
+  kind: interpreted_string_literal
+  regex: 'tape\.jsonl"$'
+ignores: ["pkg/tape/jsonl.go", "**/*_test.go", "gen/**"]

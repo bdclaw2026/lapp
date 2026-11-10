@@ -1,0 +1,8 @@
+id: webapp-direct-time-now
+language: go
+severity: warning
+message: direct time.Now() in pkg/webapp; use an injectable timeNow
+files: ["pkg/webapp/**"]
+rule:
+  pattern: time.Now()
+ignores: ["**/*_test.go", "gen/**", "frontend/src/gen/**", "**/node_modules/**"]

@@ -1,0 +1,9 @@
+id: logs-dir-creation
+language: go
+severity: warning
+message: workspace logs/ dir created ad hoc; consolidate workspace creation
+rule:
+  any:
+    - pattern: os.MkdirAll(filepath.Join($D, "logs"), $M)
+    - pattern: '[]string{"logs", $$$}'
+ignores: ["**/*_test.go", "gen/**", "frontend/src/gen/**", "**/node_modules/**"]

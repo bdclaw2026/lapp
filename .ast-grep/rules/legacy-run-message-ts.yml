@@ -1,0 +1,10 @@
+id: legacy-run-message-ts
+language: tsx
+severity: warning
+message: reads deprecated progressMessage/errorMessage; use structured progress/error
+rule:
+  kind: member_expression
+  has:
+    field: property
+    regex: '^(progressMessage|errorMessage)$'
+ignores: ["**/*_test.go", "gen/**", "frontend/src/gen/**", "**/node_modules/**"]

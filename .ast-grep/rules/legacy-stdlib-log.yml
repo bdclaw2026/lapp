@@ -1,0 +1,11 @@
+id: legacy-stdlib-log
+language: go
+severity: warning
+message: stdlib log.* call; use log/slog with key/value attrs
+rule:
+  kind: call_expression
+  has:
+    field: function
+    kind: selector_expression
+    regex: '^log\.(Print|Printf|Println|Fatal|Fatalf|Fatalln|Panic|Panicf|Panicln)$'
+ignores: ["**/*_test.go", "gen/**", "frontend/src/gen/**", "**/node_modules/**"]
