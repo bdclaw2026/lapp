@@ -1,8 +1,10 @@
 #!/bin/sh
-# Legacy-pattern ratchet: fail if any ast-grep rule count goes up vs. the base.
-# Usage: .ast-grep/ratchet.sh <base-ref>   (run from anywhere inside the repo)
-# Needs: ast-grep (0.51.1), jq, git. No baseline file: both sides are counted
-# with this checkout's .ast-grep/ rules.
+# Legacy-pattern ratchet: fail if any ast-grep rule matches more often on HEAD
+# than on the merge-base with <base-ref>. Both sides are counted with HEAD's
+# .ast-grep/ rules, so no baseline file is committed.
+#
+# Usage: .ast-grep/ratchet.sh <base-ref>     (e.g. origin/main)
+# Needs: git, ast-grep (0.51.1), jq.
 set -eu
 
 if [ $# -ne 1 ]; then
@@ -14,13 +16,13 @@ base_ref=$1
 root=$(git rev-parse --show-toplevel)
 cd "$root"
 
-# count <dir>: prints "<ruleId> <count>" per rule, sorted by rule id
+# count <dir> <out>: writes lines "<ruleId> <count>" (ast-grep failure aborts)
 count() {
-  # scan to a file first so an ast-grep failure stops the script (no pipefail in sh)
-  (cd "$1" && ast-grep scan -c .ast-grep/sgconfig.yml --json=stream . >"$tmp/scan.json")
-  jq -r .ruleId "$tmp/scan.json" | sort | uniq -c | awk '{print $2, $1}'
+  (cd "$1" && ast-grep scan -c .ast-grep/sgconfig.yml --json=stream .) >"$2.json"
+  jq -r .ruleId <"$2.json" | sort | uniq -c | awk '{print $2, $1}' >"$2"
 }
 
+merge_base=$(git merge-base "$base_ref" HEAD)
 tmp=$(mktemp -d)
 wt="$tmp/base"
 cleanup() {
@@ -29,47 +31,39 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-base_sha=$(git merge-base "$base_ref" HEAD)
-
-count "$root" >"$tmp/head.txt"
-
-git worktree add --quiet --detach "$wt" "$base_sha"
+git worktree add --quiet --detach "$wt" "$merge_base"
 rm -rf "$wt/.ast-grep"
 cp -R "$root/.ast-grep" "$wt/.ast-grep"
-count "$wt" >"$tmp/base.txt"
 
-# Rule ids from both sides plus every rule file, so zero-count rules show up.
-for f in "$root"/.ast-grep/rules/*.yml; do
-  sed -n 's/^id:[[:space:]]*//p' "$f"
-done >"$tmp/ids.txt"
+count "$root" "$tmp/head"
+count "$wt" "$tmp/base.counts"
+# every rule id, so rules with no matches on either side still show up as 0
+sed -n 's/^id:[[:space:]]*//p' .ast-grep/rules/*.yml | awk '{print $1, 0}' >"$tmp/ids"
 
-echo "ast-grep ratchet: base $base_ref ($base_sha) vs HEAD"
-awk '
-  FILENAME == ARGV[1] { base[$1] = $2; ids[$1] = 1; next }
-  FILENAME == ARGV[2] { head[$1] = $2; ids[$1] = 1; next }
-  { ids[$1] = 1 }
+echo "ast-grep ratchet: base $base_ref (merge-base $(git rev-parse --short "$merge_base")) vs HEAD"
+awk -v ids="$tmp/ids" -v basef="$tmp/base.counts" '
+  FILENAME == ids { seen[$1] = 1; next }
+  FILENAME == basef { base[$1] = $2; seen[$1] = 1; next }
+  { head[$1] = $2; seen[$1] = 1 }
   END {
-    printf "%-28s %6s %6s %7s\n", "rule", "base", "head", "change"
+    printf "%-40s %6s %6s %7s\n", "rule", "base", "head", "change"
     n = 0
-    for (id in ids) sorted[++n] = id
-    for (i = 2; i <= n; i++) {           # insertion sort, portable awk
-      v = sorted[i]; j = i - 1
-      while (j > 0 && sorted[j] > v) { sorted[j + 1] = sorted[j]; j-- }
-      sorted[j + 1] = v
-    }
+    for (r in seen) names[++n] = r
+    # simple sort for stable output
+    for (i = 1; i <= n; i++) for (j = i + 1; j <= n; j++) if (names[j] < names[i]) { t = names[i]; names[i] = names[j]; names[j] = t }
     rose = ""
     for (i = 1; i <= n; i++) {
-      id = sorted[i]; b = base[id] + 0; h = head[id] + 0; d = h - b
-      printf "%-28s %6d %6d %+7d\n", id, b, h, d
-      if (d > 0) rose = rose " " id
+      r = names[i]; b = base[r] + 0; h = head[r] + 0
+      printf "%-40s %6d %6d %+7d\n", r, b, h, h - b
+      if (h > b) rose = rose " " r
     }
     if (rose != "") {
       print ""
       print "FAIL: legacy-pattern count rose for:" rose
-      print "Use the preferred pattern named in the rule message (ast-grep scan -c .ast-grep/sgconfig.yml)."
+      print "Use the preferred pattern named in the rule message (run: ast-grep scan -c .ast-grep/sgconfig.yml)."
       exit 1
     }
     print ""
     print "OK: no legacy-pattern count rose."
   }
-' "$tmp/base.txt" "$tmp/head.txt" "$tmp/ids.txt"
+' "$tmp/ids" "$tmp/base.counts" "$tmp/head"
